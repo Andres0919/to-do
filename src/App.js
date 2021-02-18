@@ -1,6 +1,13 @@
-import { isEmpty, size } from "lodash";
-import React, { useState } from "react";
-import shortid, { isValid } from "shortid";
+import { isEmpty } from "lodash";
+import React, { useState, useEffect } from "react";
+import {
+  addDocument,
+  deleteDocument,
+  getColletion,
+  updateDocument,
+} from "./actions";
+import ToDoList from "./ToDoList";
+import ToDoForm from "./ToDoForm";
 
 function App() {
   const [task, setTask] = useState("");
@@ -8,6 +15,15 @@ function App() {
   const [editMode, setEditMode] = useState(false);
   const [id, setId] = useState(null);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      const result = await getColletion("task");
+      if (result.statusResponse) {
+        setTasks(result.data);
+      }
+    })();
+  }, []);
 
   const validateForm = () => {
     let isValid = true;
@@ -21,14 +37,20 @@ function App() {
     return isValid;
   };
 
-  const addTask = (e) => {
+  const addTask = async (e) => {
     e.preventDefault();
     if (!validateForm()) {
       return;
     }
 
+    const result = await addDocument("task", { name: task });
+    if (!result.statusResponse) {
+      setError(result.error);
+      return;
+    }
+
     const newTask = {
-      id: shortid.generate(),
+      id: result.data.id,
       name: task,
     };
 
@@ -36,9 +58,15 @@ function App() {
     setTask("");
   };
 
-  const saveTask = (e) => {
+  const saveTask = async (e) => {
     e.preventDefault();
     if (!validateForm()) {
+      return;
+    }
+
+    const result = await updateDocument("task", id, { name: task });
+    if (!result.statusResponse) {
+      setError(result.error);
       return;
     }
 
@@ -51,7 +79,13 @@ function App() {
     setId(null);
   };
 
-  const deleteTask = (id) => {
+  const deleteTask = async (id) => {
+    const result = await deleteDocument("task", id);
+    if (!result.statusResponse) {
+      setError(result.error);
+      return;
+    }
+
     const filteredTask = tasks.filter((task) => task.id !== id);
     setTasks(filteredTask);
   };
@@ -68,53 +102,17 @@ function App() {
       <hr />
       <div className="row">
         <div className="col-8">
-          <h4 className="text-center">to do list</h4>
-          {size(tasks) === 0 ? (
-            <h5 className="text-center text-info">There are no tasks yet</h5>
-          ) : (
-            <ul className="list-group">
-              {tasks.map((task) => (
-                <li className="list-group-item" key={task.id}>
-                  <span className="lead">{task.name}</span>
-                  <button
-                    className="btn btn-danger btn-sm float-right mx-2"
-                    onClick={() => deleteTask(task.id)}
-                  >
-                    Eliminar
-                  </button>
-                  <button
-                    className="btn btn-warning btn-sm float-right"
-                    onClick={() => editTask(task)}
-                  >
-                    Editar
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <ToDoList tasks={tasks} editTask={editTask} deleteTask={deleteTask} />
         </div>
         <div className="col-4">
-          <h4 className="text-center">{editMode ? "Edit" : "Add"} task</h4>
-          <form onSubmit={editMode ? saveTask : addTask}>
-            <input
-              type="text"
-              className="form-control mb-2"
-              placeholder="Enter the task"
-              onChange={(text) => setTask(text.target.value)}
-              value={task}
-            />
-            {error && <span className="text-danger d-block mb-2">{error}</span>}
-            <button
-              className={
-                editMode
-                  ? "btn btn-warning btn-block"
-                  : "btn btn-dark btn-block"
-              }
-              type="submit"
-            >
-              {editMode ? "Edit" : "Add"}
-            </button>
-          </form>
+          <ToDoForm
+            editMode={editMode}
+            saveTask={saveTask}
+            addTask={addTask}
+            setTask={setTask}
+            task={task}
+            error={error}
+          />
         </div>
       </div>
     </div>
